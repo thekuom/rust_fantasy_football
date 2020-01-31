@@ -1,0 +1,26 @@
+version: '3'
+services:
+  players:
+    build: ./players
+    command: cargo run --bin main
+    volumes:
+      - ./players:/usr/src/app
+    ports:
+      - 4001:4000
+    depends_on:
+      - postgres
+    env_file: ./players/.env
+    networks:
+      - ff-network
+
+  postgres:
+    image: postgres:12.1
+    restart: always
+    ports: 
+      - 5432:5432
+    networks:
+      - ff-network
+
+networks:
+  ff-network:
+    external: false
