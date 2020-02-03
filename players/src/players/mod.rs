@@ -1,22 +1,25 @@
-use actix_web::{get, web, HttpRequest, Responder};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use diesel::prelude::*;
-use serde::{Serialize};
+use serde::{Deserialize, Serialize};
 
-mod models;
+use crate::AppData;
+
+pub mod models;
 use models::{Player, Team};
-use crate::establish_connection;
 
-#[derive(Serialize)]
-struct PlayerWithTeam {
-    player: Player,
-    team: Option<Team>,
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+pub struct PlayerWithTeam {
+    pub player: Player,
+    pub team: Option<Team>,
 }
 
-#[get("/players")]
-async fn get_players(_req: HttpRequest) -> impl Responder {
+pub async fn get_players(
+    data: web::Data<AppData>,
+    _req: HttpRequest
+) -> impl Responder {
     use crate::schema::{players, teams};
 
-    let connection = establish_connection();
+    let connection = data.db_pool.get().expect("Could not get db connection from pool");
     let players_with_teams = players::table
         .left_join(teams::table)
         .load::<(Player, Option<Team>)>(&connection)
@@ -31,5 +34,5 @@ async fn get_players(_req: HttpRequest) -> impl Responder {
             result
         });
 
-    web::Json(players_with_teams)
+    HttpResponse::Ok().json(players_with_teams)
 }

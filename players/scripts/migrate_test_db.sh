@@ -1,2 +1,6 @@
-#! /bin/sh
-DATABASE_URL=postgres://postgres:password@postgres:5432/players_test diesel migration run
+#! /bin/bash
+set -a
+source .env
+set +a
+
+DATABASE_URL=$DATABASE_URL_TEST diesel migration run
