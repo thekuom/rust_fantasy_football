@@ -1,5 +1,6 @@
 mod common;
 
+// Only compile when running tests
 #[cfg(test)]
 mod tests {
     use actix_web::{test, web, App};
