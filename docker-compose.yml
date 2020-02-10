@@ -1,15 +1,15 @@
 version: '3'
 services:
   players:
-    build: ./players
+    build: ./players_api
     command: cargo run --bin main
     volumes:
-      - ./players:/usr/src/app
+      - ./players_api:/usr/src/app
     ports:
       - 4001:4000
     depends_on:
       - postgres
-    env_file: ./players/.env
+    env_file: ./players_api/.env
     networks:
       - ff-network
 
