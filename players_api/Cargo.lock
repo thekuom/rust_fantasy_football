@@ -1121,7 +1121,6 @@ version = "0.1.0"
 dependencies = [
  "actix-http-test",
  "actix-rt",
- "actix-service",
  "actix-web",
  "diesel",
  "dotenv",
