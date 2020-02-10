@@ -8,7 +8,7 @@
 /* Because we put main.rs in src/bin, src/lib.rs becomes the entrypoint
  * for the players crate
  */
-use players::run;
+use players_api::run;
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {

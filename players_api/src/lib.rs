@@ -48,30 +48,30 @@ pub async fn run() -> std::io::Result<()> {
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     let pool = Pool::builder().build(manager).expect("Failed to create pool.");
 
-    use players::models::{CreatePlayerForm, UpdatePlayerForm};
+    HttpServer::new(move || {
+        use crate::players::models::{CreatePlayerForm, UpdatePlayerForm};
 
-    HttpServer::new(move ||
         App::new()
             .data(AppData { db_pool: pool.clone() })
             .wrap(middleware::Logger::default())
             .service(
                 web::resource("/players")
-                    .app_data(
-                        web::Json::<CreatePlayerForm>::configure(CreatePlayerForm::handle_deserialize)
-                    )
-                    .route(web::get().to(players::get_players))
-                    .route(web::post().to(players::create_player))
+                .app_data(
+                    web::Json::<CreatePlayerForm>::configure(CreatePlayerForm::handle_deserialize)
+                )
+                .route(web::get().to(players::get_players))
+                .route(web::post().to(players::create_player))
             )
             .service(
                 web::resource("/players/{id}")
-                    .app_data(
-                        web::Json::<UpdatePlayerForm>::configure(UpdatePlayerForm::handle_deserialize)
-                    )
-                    .route(web::put().to(players::update_player))
+                .app_data(
+                    web::Json::<UpdatePlayerForm>::configure(UpdatePlayerForm::handle_deserialize)
+                )
+                .route(web::put().to(players::update_player))
             )
-        )
-    .bind("0.0.0.0:4000")?
-    .workers(2)
-    .run()
-    .await
+    })
+        .bind("0.0.0.0:4000")?
+        .workers(2)
+        .run()
+        .await
 }

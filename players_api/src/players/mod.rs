@@ -93,6 +93,8 @@ pub async fn update_player(
 ) -> impl Responder {
     use crate::schema::players;
 
+    println!("update data: {:?}", player);
+
     let connection = data.db_pool.get().expect("Could not get db connection from pool");
     let player = player.into_inner();
     let id = path.into_inner();

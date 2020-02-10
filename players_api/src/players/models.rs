@@ -31,7 +31,7 @@ impl PartialEq for Player {
     }
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Debug, Deserialize, Serialize)]
 #[table_name = "players"]
 pub struct CreatePlayerForm {
     pub first_name: String,
@@ -53,7 +53,7 @@ impl CreatePlayerForm {
 }
 
 #[changeset_options(treat_none_as_null="true")]
-#[derive(AsChangeset, Deserialize)]
+#[derive(AsChangeset, Debug, Deserialize, Serialize)]
 #[table_name = "players"]
 pub struct UpdatePlayerForm {
     pub first_name: String,
@@ -75,7 +75,7 @@ impl UpdatePlayerForm {
 }
 
 /// Team model. Represents a team a player can be on
-#[derive(Identifiable, Debug, Deserialize, Serialize, Queryable)]
+#[derive(Identifiable, Insertable, Debug, Deserialize, Serialize, Queryable)]
 #[table_name = "teams"]
 pub struct Team {
     pub id: Uuid,
