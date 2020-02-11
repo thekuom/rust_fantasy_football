@@ -1,0 +1,4 @@
+version: '3'
+services:
+  players:
+    env_file: ./players_api/.env

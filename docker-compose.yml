@@ -9,7 +9,6 @@ services:
       - 4001:4000
     depends_on:
       - postgres
-    env_file: ./players_api/.env
     networks:
       - ff-network
 
