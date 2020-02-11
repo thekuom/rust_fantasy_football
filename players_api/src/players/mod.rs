@@ -17,6 +17,10 @@ use models::{CreatePlayerForm, Player, PlayerWithTeam, Team, UpdatePlayerForm};
 
 /// Gets all the players and their team from the database
 ///
+/// # Returns
+///
+/// 200 is returned and sends an array of [PlayerWithTeam](./models/struct.PlayerWithTeam.html)
+///
 /// # Panics
 ///
 /// Panics when it fails to get a database connection
@@ -46,7 +50,65 @@ pub async fn get_players(
     HttpResponse::Ok().json(players_with_teams)
 }
 
+/// Fetches a player
+///
+/// # Returns
+///
+/// 200 is returned if the player is found and sends a
+///     [PlayerWithTeam](./models/struct.PlayerWithTeam.html)
+///
+/// 404 is returned when the player is not found by the given id
+///
+/// 500 is returned when there is any other database error
+///
+/// # Panics
+///
+/// Panics when it fails to get a database connection
+pub async fn get_player(
+    data: web::Data<AppData>,
+    path: web::Path<Uuid>,
+    _req: HttpRequest
+) -> impl Responder {
+    use crate::schema::{players, teams};
+
+    let id = path.into_inner();
+
+    let connection = data.db_pool.get().expect("Could not get db connection from pool");
+    let result = players::table
+        .find(id)
+        .left_join(teams::table)
+        .first::<(Player, Option<Team>)>(&connection);
+
+    match result {
+        Ok((player, team)) => {
+            HttpResponse::Ok().json(PlayerWithTeam {
+                player,
+                team,
+            })
+        },
+        Err(err) => match err {
+            DieselError::NotFound => HttpResponse::NotFound().json(JsonError::<bool> {
+                message: "Player not found".to_string(),
+                data: None,
+            }),
+            _ => HttpResponse::InternalServerError().json(JsonError {
+                message: "Something went wrong".to_string(),
+                data: Some(err.to_string()),
+            }),
+        },
+    }
+}
+
 /// Creates a player
+///
+/// # Returns
+///
+/// 200 is returned when the creation is successful and sends the created
+///     [Player](./models/struct.Player.html)
+///
+/// 400 is returned when there is a foreign key violation i.e. the team does not exist
+///
+/// 500 is returned when there is any other database error
 ///
 /// # Panics
 ///
@@ -83,6 +145,13 @@ pub async fn create_player(
 
 /// Updates a player
 ///
+/// # Returns
+///
+/// 200 is returned when the update was successful and sends the updated
+///     [Player](./models/struct.Player.html)
+///
+/// 500 is returned when there is any other database error
+///
 /// # Panics
 ///
 /// Panics when it fails to get a database connection
@@ -92,8 +161,6 @@ pub async fn update_player(
     player: web::Json<UpdatePlayerForm>
 ) -> impl Responder {
     use crate::schema::players;
-
-    println!("update data: {:?}", player);
 
     let connection = data.db_pool.get().expect("Could not get db connection from pool");
     let player = player.into_inner();

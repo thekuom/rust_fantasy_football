@@ -67,6 +67,7 @@ pub async fn run() -> std::io::Result<()> {
                 .app_data(
                     web::Json::<UpdatePlayerForm>::configure(UpdatePlayerForm::handle_deserialize)
                 )
+                .route(web::get().to(players::get_player))
                 .route(web::put().to(players::update_player))
             )
     })
