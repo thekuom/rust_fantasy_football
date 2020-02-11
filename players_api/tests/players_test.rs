@@ -3,12 +3,13 @@ mod common;
 // Only compile when running tests
 #[cfg(test)]
 mod players_tests {
-    use actix_web::{http, test, web, App};
+    use actix_web::{http, test, App};
     use diesel::RunQueryDsl;
     use diesel::query_dsl::methods::FindDsl;
     use uuid::Uuid;
 
     use players_api;
+    use players_api::register;
     use players_api::schema::players::table as players_table;
     use players_api::schema::teams::table as teams_table;
     use players_api::players::models::{CreatePlayerForm, Player, PlayerWithTeam, Team, UpdatePlayerForm};
@@ -17,11 +18,7 @@ mod players_tests {
     #[actix_rt::test]
     async fn test_get_players_is_ok() {
         let db_pool = get_pool();
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players", web::get().to(players_api::players::get_players))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::get().uri("/players").to_request();
         let res = test::call_service(&mut app, req).await;
@@ -49,15 +46,11 @@ mod players_tests {
             .values(von())
             .get_result::<Player>(&connection).unwrap();
 
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players", web::get().to(players_api::players::get_players))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::get().uri("/players").to_request();
-        let result = test::call_service(&mut app, req).await;
-        let result = test::read_body(result).await;
+        let response = test::call_service(&mut app, req).await;
+        let result = test::read_body(response).await;
         let result = std::str::from_utf8(&result).expect("utf8 parse error");
         let result: Vec<PlayerWithTeam> = serde_json::from_str(&result).unwrap();
 
@@ -102,18 +95,14 @@ mod players_tests {
             .values(ricky())
             .get_result::<Player>(&connection).unwrap();
 
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players/{id}", web::get().to(players_api::players::get_player))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::get().uri(format!("/players/{}", player_id).as_str()).to_request();
-        let result = test::call_service(&mut app, req).await;
+        let response = test::call_service(&mut app, req).await;
 
-        assert!(result.status().is_success());
+        assert!(response.status().is_success());
 
-        let result = test::read_body(result).await;
+        let result = test::read_body(response).await;
         let result = std::str::from_utf8(&result).expect("utf8 parse error");
         let result: PlayerWithTeam = serde_json::from_str(&result).unwrap();
 
@@ -126,11 +115,7 @@ mod players_tests {
     #[actix_rt::test]
     async fn test_get_player_returns_404() {
         let db_pool = get_pool();
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players/{id}", web::get().to(players_api::players::get_player))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::get().uri(format!("/players/{}", Uuid::new_v4()).as_str()).to_request();
         let response = test::call_service(&mut app, req).await;
@@ -153,11 +138,7 @@ mod players_tests {
             })
             .execute(&connection).unwrap();
 
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players", web::post().to(players_api::players::create_player))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::post().uri("/players").set_json(
             &CreatePlayerForm {
@@ -182,11 +163,7 @@ mod players_tests {
 
         let random_id = Uuid::new_v4();
 
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players", web::post().to(players_api::players::create_player))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
         let req = test::TestRequest::post().uri("/players").set_json(
             &CreatePlayerForm {
                 first_name: "Jace".to_string(),
@@ -203,11 +180,7 @@ mod players_tests {
         let db_pool = get_pool();
         let connection = db_pool.get().unwrap();
 
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players", web::post().to(players_api::players::create_player))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::post().uri("/players").set_json(
             &CreatePlayerForm {
@@ -246,11 +219,7 @@ mod players_tests {
             .values(kyle_allen())
             .get_result::<Player>(&connection).unwrap();
 
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players/{id}", web::put().to(players_api::players::update_player))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::put().uri(format!("/players/{}", id).as_str()).set_json(
             &UpdatePlayerForm {
@@ -298,11 +267,7 @@ mod players_tests {
             .values(johnny)
             .execute(&connection).unwrap();
 
-        let mut app = test::init_service(
-            App::new()
-            .data(players_api::AppData { db_pool })
-            .route("/players/{id}", web::put().to(players_api::players::update_player))
-        ).await;
+        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::put().uri(format!("/players/{}", id).as_str()).set_json(
             &UpdatePlayerForm {

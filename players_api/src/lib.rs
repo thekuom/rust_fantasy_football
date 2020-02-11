@@ -21,11 +21,38 @@ pub mod common;
 pub mod players;
 pub mod schema;
 
+type PgPool = Pool<ConnectionManager<PgConnection>>;
+
 /// Contains data that is passed to every request and is
 /// shared with all requests
 pub struct AppData {
     /// Pool of postgres database connections
     pub db_pool: Pool<ConnectionManager<PgConnection>>,
+}
+
+pub fn register(db_pool: PgPool) -> impl Fn(&mut web::ServiceConfig) {
+    move |config: &mut web::ServiceConfig| {
+        use crate::players::models::{CreatePlayerForm, UpdatePlayerForm};
+
+        config
+            .data(AppData { db_pool: db_pool.clone() })
+            .service(
+                web::resource("/players")
+                .app_data(
+                    web::Json::<CreatePlayerForm>::configure(CreatePlayerForm::handle_deserialize)
+                )
+                .route(web::get().to(players::get_players))
+                .route(web::post().to(players::create_player))
+            )
+            .service(
+                web::resource("/players/{id}")
+                .app_data(
+                    web::Json::<UpdatePlayerForm>::configure(UpdatePlayerForm::handle_deserialize)
+                )
+                .route(web::get().to(players::get_player))
+                .route(web::put().to(players::update_player))
+            );
+    }
 }
 
 /// Sets up the web server
@@ -49,27 +76,9 @@ pub async fn run() -> std::io::Result<()> {
     let pool = Pool::builder().build(manager).expect("Failed to create pool.");
 
     HttpServer::new(move || {
-        use crate::players::models::{CreatePlayerForm, UpdatePlayerForm};
-
         App::new()
-            .data(AppData { db_pool: pool.clone() })
             .wrap(middleware::Logger::default())
-            .service(
-                web::resource("/players")
-                .app_data(
-                    web::Json::<CreatePlayerForm>::configure(CreatePlayerForm::handle_deserialize)
-                )
-                .route(web::get().to(players::get_players))
-                .route(web::post().to(players::create_player))
-            )
-            .service(
-                web::resource("/players/{id}")
-                .app_data(
-                    web::Json::<UpdatePlayerForm>::configure(UpdatePlayerForm::handle_deserialize)
-                )
-                .route(web::get().to(players::get_player))
-                .route(web::put().to(players::update_player))
-            )
+            .configure(register(pool.clone()))
     })
         .bind("0.0.0.0:4000")?
         .workers(2)
