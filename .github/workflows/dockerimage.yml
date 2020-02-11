@@ -13,4 +13,6 @@ jobs:
     - name: Build the docker-compose stack
       run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
     - name: Test players_api
+      run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml run players sh -c "./scripts/setup_postgres_test.sh"
+      run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml run players sh -c "./scripts/migrate_test_db.sh"
       run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml run players cargo test
