@@ -9,4 +9,4 @@ COPY . .
 
 RUN cargo build
 
-CMD ["cargo", "run"]
+CMD ["cargo", "run", "--bin", "main"]

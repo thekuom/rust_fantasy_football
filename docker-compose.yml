@@ -11,6 +11,17 @@ services:
       - postgres
     networks:
       - ff-network
+  gateway:
+    build: ./api_gateway
+    command: cargo run
+    volumes:
+      - ./api_gateway:/usr/src/app
+    ports:
+      - 4000:4000
+    depends_on:
+      - players
+    networks:
+      - ff-network
 
   postgres:
     image: postgres:12.1
