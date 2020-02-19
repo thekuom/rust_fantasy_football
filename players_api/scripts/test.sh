@@ -15,4 +15,4 @@ done
 
 DATABASE_URL=$DATABASE_URL_TEST diesel migration run
 
-cargo test;
+cargo test -- --test-threads=5;

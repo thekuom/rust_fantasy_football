@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 actix-web = "2"
 actix-rt = "1"
+common_derive = { path = "./src/common/common_derive" }
 diesel = { version = "1.4", features = ["postgres", "uuid", "r2d2"] }
 dotenv = "0.15.0"
 env_logger = "0.5"
@@ -18,5 +19,7 @@ serde_derive = "1.0"
 uuid = { version = "0.6", features = ["serde", "v4"] }
 
 [dev-dependencies]
+actix-http = "1.0"
 actix-http-test = "1.0"
+fake = "2.0"
 serde_json = "1.0"

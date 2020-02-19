@@ -9,11 +9,14 @@ use uuid::Uuid;
 // AppData is defined in src/lib.rs, which is our entrypoint
 use crate::AppData;
 use crate::common::JsonError;
+use crate::schema::{players, teams};
 
 // Re-export models. Right now this is only for the tests. Ideally this could
 // remain encapsulated within the module
 pub mod models;
-use models::{CreatePlayerForm, Player, PlayerWithTeam, Team, UpdatePlayerForm};
+use models::{CreatePlayerForm, Player, PlayerWithTeam, UpdatePlayerForm};
+
+use crate::teams::models::Team;
 
 /// Gets all the players and their team from the database
 ///
@@ -30,8 +33,6 @@ pub async fn get_players(
     data: web::Data<AppData>,
     _req: HttpRequest
 ) -> impl Responder {
-    use crate::schema::{players, teams};
-
     let connection = data.db_pool.get().expect("Could not get db connection from pool");
     let players_with_teams = players::table
         .left_join(teams::table)
@@ -69,8 +70,6 @@ pub async fn get_player(
     path: web::Path<Uuid>,
     _req: HttpRequest
 ) -> impl Responder {
-    use crate::schema::{players, teams};
-
     let id = path.into_inner();
 
     let connection = data.db_pool.get().expect("Could not get db connection from pool");
@@ -117,8 +116,6 @@ pub async fn create_player(
     data: web::Data<AppData>,
     player: web::Json<CreatePlayerForm>
 ) -> impl Responder {
-    use crate::schema::players;
-
     let connection = data.db_pool.get().expect("Could not get db connection from pool");
     let player = player.into_inner();
     let team_not_found_err = format!("Team {} not found", &player.team_id.map(|id| id.to_string()).unwrap_or_else(|| "".to_string()));
@@ -160,8 +157,6 @@ pub async fn update_player(
     path: web::Path<Uuid>,
     player: web::Json<UpdatePlayerForm>
 ) -> impl Responder {
-    use crate::schema::players;
-
     let connection = data.db_pool.get().expect("Could not get db connection from pool");
     let player = player.into_inner();
     let id = path.into_inner();
@@ -170,9 +165,45 @@ pub async fn update_player(
 
     match result {
         Ok(player) => HttpResponse::Ok().json(player),
-        Err(err) => HttpResponse::InternalServerError().json(JsonError {
-            message: "Something went wrong".to_string(),
-            data: Some(err.to_string()),
-        }),
+        Err(err) => match err {
+            DieselError::NotFound => HttpResponse::NotFound().json(JsonError {
+                message: "Player not found".to_string(),
+                data: Some(id),
+            }),
+            _ => HttpResponse::InternalServerError().json(JsonError {
+                message: "Something went wrong".to_string(),
+                data: Some(err.to_string()),
+            }),
+        },
+    }
+}
+
+/// Deletes a player
+///
+/// # Returns
+///
+/// 204 is returned when the delete was successful or the player does not exist
+///
+/// 500 is returned when there is any other database error
+///
+/// # Panics
+///
+/// Panics when it fais to get a database connection
+pub async fn delete_player(
+    data: web::Data<AppData>,
+    path: web::Path<Uuid>,
+    _req: HttpRequest
+) -> impl Responder {
+    let connection = data.db_pool.get().expect("Could not get db connection from pool");
+    let id = path.into_inner();
+
+    match diesel::delete(players::table.find(&id)).execute(&connection) {
+        Ok(_) => HttpResponse::NoContent().finish(),
+        Err(err) => {
+            HttpResponse::InternalServerError().json(JsonError {
+                message: "Something went wrong".to_string(),
+                data: Some(err.to_string()),
+            })
+        }
     }
 }

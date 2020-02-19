@@ -5,6 +5,7 @@ mod common;
 mod players_tests {
     use actix_web::{http, test, App};
     use diesel::RunQueryDsl;
+    use diesel::result::Error as DieselError;
     use diesel::query_dsl::methods::FindDsl;
     use uuid::Uuid;
 
@@ -12,18 +13,19 @@ mod players_tests {
     use players_api::register;
     use players_api::schema::players::table as players_table;
     use players_api::schema::teams::table as teams_table;
-    use players_api::players::models::{CreatePlayerForm, Player, PlayerWithTeam, Team, UpdatePlayerForm};
+    use players_api::players::models::{CreatePlayerForm, Player, PlayerWithTeam, UpdatePlayerForm};
+    use players_api::teams::models::Team;
+    use crate::common::{get_status, get_response};
     use crate::common::db_connection::get_pool;
 
     #[actix_rt::test]
     async fn test_get_players_is_ok() {
         let db_pool = get_pool();
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::get().uri("/players").to_request();
-        let res = test::call_service(&mut app, req).await;
+        let status = get_status(&db_pool, req).await;
 
-        assert!(res.status().is_success());
+        assert!(status.is_success());
     }
 
     #[actix_rt::test]
@@ -46,13 +48,8 @@ mod players_tests {
             .values(von())
             .get_result::<Player>(&connection).unwrap();
 
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
-
         let req = test::TestRequest::get().uri("/players").to_request();
-        let response = test::call_service(&mut app, req).await;
-        let result = test::read_body(response).await;
-        let result = std::str::from_utf8(&result).expect("utf8 parse error");
-        let result: Vec<PlayerWithTeam> = serde_json::from_str(&result).unwrap();
+        let (_, result): (_, Vec<PlayerWithTeam>) = get_response(&db_pool, req).await;
 
         assert!(!result.is_empty());
         assert_eq!(*result.iter().find(|p| p.player.id == id).unwrap(), PlayerWithTeam {
@@ -95,17 +92,10 @@ mod players_tests {
             .values(ricky())
             .get_result::<Player>(&connection).unwrap();
 
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
-
         let req = test::TestRequest::get().uri(format!("/players/{}", player_id).as_str()).to_request();
-        let response = test::call_service(&mut app, req).await;
+        let (status, result): (_, PlayerWithTeam) = get_response(&db_pool, req).await;
 
-        assert!(response.status().is_success());
-
-        let result = test::read_body(response).await;
-        let result = std::str::from_utf8(&result).expect("utf8 parse error");
-        let result: PlayerWithTeam = serde_json::from_str(&result).unwrap();
-
+        assert!(status.is_success());
         assert_eq!(result, PlayerWithTeam {
             player: ricky(),
             team: Some(browns()),
@@ -138,8 +128,6 @@ mod players_tests {
             })
             .execute(&connection).unwrap();
 
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
-
         let req = test::TestRequest::post().uri("/players").set_json(
             &CreatePlayerForm {
                 first_name: "Jace".to_string(),
@@ -147,8 +135,8 @@ mod players_tests {
                 team_id: Some(team_id),
             }
         ).to_request();
-        let response = test::call_service(&mut app, req).await;
-        assert!(response.status().is_success());
+        let status = get_status(&db_pool, req).await;
+        assert!(status.is_success());
 
         let players: Vec<Player> = players_table.load::<Player>(&connection)
             .expect("error with query");
@@ -163,7 +151,6 @@ mod players_tests {
 
         let random_id = Uuid::new_v4();
 
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
         let req = test::TestRequest::post().uri("/players").set_json(
             &CreatePlayerForm {
                 first_name: "Jace".to_string(),
@@ -171,16 +158,14 @@ mod players_tests {
                 team_id: Some(random_id),
             }
         ).to_request();
-        let response = test::call_service(&mut app, req).await;
-        assert!(!response.status().is_success());
+        let status = get_status(&db_pool, req).await;
+        assert!(!status.is_success());
     }
 
     #[actix_rt::test]
     async fn test_create_player_creates_player_without_team() {
         let db_pool = get_pool();
         let connection = db_pool.get().unwrap();
-
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::post().uri("/players").set_json(
             &CreatePlayerForm {
@@ -189,8 +174,8 @@ mod players_tests {
                 team_id: None,
             }
         ).to_request();
-        let response = test::call_service(&mut app, req).await;
-        assert!(response.status().is_success());
+        let (status, _): (_, Player) = get_response(&db_pool, req).await;
+        assert!(status.is_success());
 
         let players: Vec<Player> = players_table.load::<Player>(&connection)
             .expect("error with query");
@@ -219,8 +204,6 @@ mod players_tests {
             .values(kyle_allen())
             .get_result::<Player>(&connection).unwrap();
 
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
-
         let req = test::TestRequest::put().uri(format!("/players/{}", id).as_str()).set_json(
             &UpdatePlayerForm {
                 first_name: "Kyle".to_string(),
@@ -228,12 +211,27 @@ mod players_tests {
                 team_id: None,
             }
         ).to_request();
-        let response = test::call_service(&mut app, req).await;
+        let status = get_status(&db_pool, req).await;
 
-        assert!(response.status().is_success());
+        assert!(status.is_success());
 
         let player: Player = players_table.find(id).first(&connection).expect("Expected to find a player");
         assert_eq!(player.first_name, "Kyle".to_string());
+    }
+
+    #[actix_rt::test]
+    async fn test_update_player_returns_404() {
+        let db_pool = get_pool();
+        let req = test::TestRequest::put().uri(format!("/players/{}", Uuid::new_v4()).as_str()).set_json(
+            &UpdatePlayerForm {
+                first_name: "Kyle".to_string(),
+                last_name: "Allen".to_string(),
+                team_id: None,
+            }
+        ).to_request();
+        let status = get_status(&db_pool, req).await;
+
+        assert_eq!(status, http::StatusCode::NOT_FOUND);
     }
 
     #[actix_rt::test]
@@ -250,15 +248,13 @@ mod players_tests {
         };
 
         let id = Uuid::new_v4();
-        let johnny = {
-            Player {
-                id,
-                first_name: "Johnny".to_string(),
-                last_name: "Manziel".to_string(),
-                created_at: None,
-                updated_at: None,
-                team_id: Some(browns.id),
-            }
+        let johnny = Player {
+            id,
+            first_name: "Johnny".to_string(),
+            last_name: "Manziel".to_string(),
+            created_at: None,
+            updated_at: None,
+            team_id: Some(browns.id),
         };
         diesel::insert_into(teams_table) 
             .values(browns)
@@ -267,8 +263,6 @@ mod players_tests {
             .values(johnny)
             .execute(&connection).unwrap();
 
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
-
         let req = test::TestRequest::put().uri(format!("/players/{}", id).as_str()).set_json(
             &UpdatePlayerForm {
                 first_name: "Johnny".to_string(),
@@ -276,11 +270,38 @@ mod players_tests {
                 team_id: None,
             }
         ).to_request();
-        let response = test::call_service(&mut app, req).await;
+        let status = get_status(&db_pool, req).await;
 
-        assert!(response.status().is_success());
+        assert!(status.is_success());
 
         let player: Player = players_table.find(id).first(&connection).expect("Expected to find a player");
         assert_eq!(player.team_id, None);
+    }
+
+    #[actix_rt::test]
+    async fn test_delete_player_deletes_player() {
+        let db_pool = get_pool();
+        let connection = db_pool.get().unwrap();
+
+        let id = Uuid::new_v4();
+        let christine = Player {
+            id,
+            first_name: "Christine".to_string(),
+            last_name: "Michael".to_string(),
+            created_at: None,
+            updated_at: None,
+            team_id: None,
+        };
+        diesel::insert_into(players_table)
+            .values(christine)
+            .execute(&connection).unwrap();
+
+        let req = test::TestRequest::delete().uri(format!("/players/{}", id).as_str()).to_request();
+        let status = get_status(&db_pool, req).await;
+
+        assert!(status.is_success());
+
+        let player = players_table.find(id).first::<Player>(&connection);
+        assert_eq!(player, Err(DieselError::NotFound));
     }
 }

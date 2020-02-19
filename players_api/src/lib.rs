@@ -20,8 +20,11 @@ use std::env;
 pub mod common;
 pub mod players;
 pub mod schema;
+pub mod teams;
 
-type PgPool = Pool<ConnectionManager<PgConnection>>;
+use common::DeserializeErrorHandler;
+
+pub type PgPool = Pool<ConnectionManager<PgConnection>>;
 
 /// Contains data that is passed to every request and is
 /// shared with all requests
@@ -51,6 +54,18 @@ pub fn register(db_pool: PgPool) -> impl Fn(&mut web::ServiceConfig) {
                 )
                 .route(web::get().to(players::get_player))
                 .route(web::put().to(players::update_player))
+                .route(web::delete().to(players::delete_player))
+            )
+            .service(
+                web::resource("/teams")
+                .route(web::get().to(teams::get_teams))
+                .route(web::post().to(teams::create_team))
+            )
+            .service(
+                web::resource("/teams/{id}")
+                .route(web::get().to(teams::get_team))
+                .route(web::put().to(teams::update_team))
+                .route(web::delete().to(teams::delete_team))
             );
     }
 }
