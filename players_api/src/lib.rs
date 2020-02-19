@@ -20,6 +20,7 @@ use std::env;
 pub mod common;
 pub mod players;
 pub mod schema;
+pub mod seeds;
 pub mod teams;
 
 use common::DeserializeErrorHandler;
