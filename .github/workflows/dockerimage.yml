@@ -7,12 +7,30 @@ on:
       - develop
 
 jobs:
-  build:
+  players_api:
     runs-on: ubuntu-latest
+    env:
+      working-directory: ./players_api
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build the docker-compose stack
-      run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+    - name: Build players_api
+      run: docker-compose -f docker-compose.ci.yml up -d
+      working-directory: ${{env.working-directory}}
     - name: Test players_api
-      run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml run players sh -c "./scripts/setup_postgres_test.sh && ./scripts/test.sh"
+      run: docker-compose -f docker-compose.ci.yml exec -T players_api sh -c "./scripts/setup_postgres_test.sh && ./scripts/test.sh"
+      working-directory: ${{env.working-directory}}
+
+  api_gateway:
+    runs-on: ubuntu-latest
+    env:
+      working-directory: ./api_gateway
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build gateway
+      run: docker-compose -f docker-compose.ci.yml up -d
+      working-directory: ${{env.working-directory}}
+    - name: Test api_gateway
+      run: docker-compose -f docker-compose.ci.yml exec -T api_gateway sh -c "./scripts/test.sh"
+      working-directory: ${{env.working-directory}}

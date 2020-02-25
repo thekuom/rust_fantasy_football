@@ -3,14 +3,13 @@ mod common;
 // Only compile when running tests
 #[cfg(test)]
 mod players_tests {
-    use actix_web::{http, test, App};
+    use actix_web::{http, test};
     use diesel::RunQueryDsl;
     use diesel::result::Error as DieselError;
     use diesel::query_dsl::methods::FindDsl;
     use uuid::Uuid;
 
     use players_api;
-    use players_api::register;
     use players_api::schema::players::table as players_table;
     use players_api::schema::teams::table as teams_table;
     use players_api::players::models::{CreatePlayerForm, Player, PlayerWithTeam, UpdatePlayerForm};
@@ -105,11 +104,10 @@ mod players_tests {
     #[actix_rt::test]
     async fn test_get_player_returns_404() {
         let db_pool = get_pool();
-        let mut app = test::init_service(App::new().configure(register(db_pool))).await;
 
         let req = test::TestRequest::get().uri(format!("/players/{}", Uuid::new_v4()).as_str()).to_request();
-        let response = test::call_service(&mut app, req).await;
-        assert!(response.status() == http::StatusCode::NOT_FOUND);
+        let status = get_status(&db_pool, req).await;
+        assert!(status == http::StatusCode::NOT_FOUND);
     }
 
     #[actix_rt::test]

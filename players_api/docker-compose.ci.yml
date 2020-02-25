@@ -1,6 +1,16 @@
 version: '3'
 services:
-  players:
+  players_api:
+    build: ./
+    command: cargo run --bin main
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - 4000:4000
+    depends_on:
+      - postgres
+    networks:
+      - players_api-network
     environment:
       - DB_HOST=postgres
       - DB_USER=db_user
@@ -14,3 +24,15 @@ services:
       - DB_PORT_TEST=5432
       - DB_NAME_TEST=players_test
       - DATABASE_URL_TEST=postgres://db_user:password@postgres/players_test
+
+  postgres:
+    image: postgres:12.1
+    restart: always
+    ports: 
+      - 5432:5432
+    networks:
+      - players_api-network
+
+networks:
+  players_api-network:
+    external: false

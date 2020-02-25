@@ -1,6 +1,6 @@
 version: '3'
 services:
-  players:
+  players_api:
     env_file: ./players_api/.env
-  gateway:
+  api_gateway:
     env_file: ./api_gateway/.env

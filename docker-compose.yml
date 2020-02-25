@@ -1,6 +1,6 @@
 version: '3'
 services:
-  players:
+  players_api:
     build: ./players_api
     command: cargo run --bin main
     volumes:
@@ -11,7 +11,8 @@ services:
       - postgres
     networks:
       - ff-network
-  gateway:
+
+  api_gateway:
     build: ./api_gateway
     command: cargo run
     volumes:
@@ -19,7 +20,7 @@ services:
     ports:
       - 4000:4000
     depends_on:
-      - players
+      - players_api
     networks:
       - ff-network
 

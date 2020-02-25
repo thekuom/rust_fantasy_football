@@ -1,3 +1,6 @@
+#[cfg(feature = "test")]
+use mockito;
+
 use std::io;
 use std::sync::Arc;
 
@@ -18,15 +21,26 @@ async fn playground() -> HttpResponse {
         .body(html)
 }
 
+#[cfg(not(feature = "test"))]
+fn get_config() -> schema::Config {
+    let players_api_host = std::env::var("PLAYERS_API_URL").expect("PLAYERS_API_URL must be set");
+
+    schema::Config { players_api_host }
+}
+
+#[cfg(feature = "test")]
+fn get_config() -> schema::Config {
+    let players_api_host = mockito::server_url();
+
+    schema::Config { players_api_host }
+}
+
 async fn graphql(
     st: web::Data<Arc<Schema>>,
     data: web::Json<GraphQLRequest>,
 ) -> Result<HttpResponse, Error> {
-    let players_api_host = std::env::var("PLAYERS_API_URL")
-        .expect("PLAYERS_API_URL must be set");
 
-    let config = schema::Config { players_api_host };
-
+    let config = get_config();
     let ctx = schema::Context::new(config);
 
     let result = web::block(move || {
@@ -39,6 +53,15 @@ async fn graphql(
         .body(result))
 }
 
+pub fn register(schema: Arc<schema::Schema>) -> impl Fn(&mut web::ServiceConfig) {
+    move |config: &mut web::ServiceConfig| {
+        config
+            .data(schema.clone())
+            .service(web::resource("/graphql").route(web::post().to(graphql)))
+            .service(web::resource("/playground").route(web::get().to(playground)));
+    }
+}
+
 pub async fn run() -> io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     env_logger::init();
@@ -46,12 +69,11 @@ pub async fn run() -> io::Result<()> {
     dotenv().ok();
 
     // Create Juniper schema
-    let schema = std::sync::Arc::new(create_schema());
+    let schema = Arc::new(create_schema());
 
     // Start http server
     HttpServer::new(move || {
         App::new()
-            .data(schema.clone())
             .wrap(
                 Cors::new()
                     .allowed_methods(vec!["GET", "POST", "OPTIONS"])
@@ -59,10 +81,10 @@ pub async fn run() -> io::Result<()> {
                     .finish()
             )
             .wrap(middleware::Logger::default())
-            .service(web::resource("/graphql").route(web::post().to(graphql)))
-            .service(web::resource("/playground").route(web::get().to(playground)))
+            .configure(register(schema.clone()))
     })
     .bind("0.0.0.0:4000")?
+    .workers(3)
     .run()
     .await
 }

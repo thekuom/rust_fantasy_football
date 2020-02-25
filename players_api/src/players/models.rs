@@ -21,7 +21,6 @@ pub struct Player {
     pub created_at: Option<SystemTime>,
     #[serde(skip)]
     pub updated_at: Option<SystemTime>,
-    #[serde(skip_serializing)]
     pub team_id: Option<Uuid>,
 }
 
