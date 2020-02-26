@@ -1,0 +1,38 @@
+version: '3'
+services:
+  auth_service:
+    build: ./
+    command: cargo run --bin main
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - 4000:4000
+    depends_on:
+      - postgres
+    networks:
+      - auth-network
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=db_user
+      - DB_PASSWORD=password
+      - DB_PORT=5432
+      - DB_NAME=auth
+      - DATABASE_URL=postgres://db_user:password@postgres/auth
+      - DB_HOST_TEST=postgres
+      - DB_USER_TEST=db_user
+      - DB_PASSWORD_TEST=password
+      - DB_PORT_TEST=5432
+      - DB_NAME_TEST=auth_test
+      - DATABASE_URL_TEST=postgres://db_user:password@postgres/auth_test
+
+  postgres:
+    image: postgres:12.1
+    restart: always
+    ports: 
+      - 5432:5432
+    networks:
+      - auth-network
+
+networks:
+  auth-network:
+    external: false
